@@ -865,7 +865,7 @@ for (weight_type in c("weighted", "unweighted")) {
 cat("\n=== Generating interaction effect plots ===\n")
 
 # Source the interaction plotting functions
-source("./code_draft/functions/plotting_interactions.R")
+source(file.path(project_root, "functions", "plotting_interactions.R"))
 
 figure_dir <- get_writing_path("figures")
 table_dir <- get_writing_path("tables")

@@ -1,197 +1,47 @@
-# Modular Prebunking Analysis Code
+# Towards Generalizable AI-Assisted Misinformation Inoculation: Protecting Confidence Against False Election Narratives
 
-This directory contains the modularized version of the prebunking analysis, extracted from the original 2136-line `prebunk.R` script.
-
-## Directory Structure
-
-```
-code_draft/
-├── config/
-│   └── config.R              # Configuration, libraries, and variable definitions
-├── functions/
-│   ├── data_processing.R     # Data loading and transformation
-│   ├── modeling.R            # Regression models and statistical tests
-│   ├── plotting.R            # All visualization code
-│   └── tables.R              # Summary statistics and table generation
-├── R/
-│   └── main_analysis.R       # Main script that runs the complete analysis
-└── README.md                 # This file
-```
-
-## File Descriptions and Line Mappings
-
-### 1. config/config.R (130 lines)
-**Extracted from:** prebunk.R lines 1-127
-
-**Contains:**
-- Library imports (27 packages)
-- File path definitions
-- Variable definitions (outcome variables, model variables)
-- Variable labels and mappings
-- Constants (rating scales, populism/conspiracy questions)
-- Treatment labels and output configuration
-
-### 2. functions/data_processing.R (214 lines)
-**Extracted from:** prebunk.R lines 38-333
-
-**Contains:**
-- Data loading (main survey and recontact data)
-- Data transformations and mutations
-- Variable recoding (MIST questions, demographic variables)
-- Scale flipping for reverse-coded items
-- Factor creation and labeling
-- Data merging (main and recontact datasets)
-- Survey weight calculations
-- Final data export and survey design setup
-- Covariate label generation
-
-**Key operations:**
-- Handles skipped values across multiple variable types
-- Recodes MIST questions to correct/incorrect
-- Creates CISA relevance variables based on randomization
-- Generates populism and conspiracy bins
-- Calculates difference scores (pre-post, pre-recontact)
-- Removes cases with missing model variables
-- Renames variables using the label mapping
-
-### 3. functions/modeling.R (502 lines)
-**Extracted from:** prebunk.R lines 464-875, 1519-1599
-
-**Contains:**
-- Mini regression models (sanity checks)
-- Individual rumor models
-- Pooled regression models
-- Recontact/followup models
-- Interaction models (HITL, party identification)
-- CISA-specific models
-- Motivation to debunk models
-- Statistical tests (t-tests, Cohen's d)
-
-**Key analyses:**
-- Simple treatment effect models
-- Models with rumor type controls
-- Human-in-the-loop comparisons
-- Full covariate-adjusted models
-- Interaction analyses by party/ideology
-- Effect size calculations
-- Both immediate and delayed (recontact) effects
-
-### 4. functions/plotting.R (798 lines)
-**Extracted from:** prebunk.R lines 877-1514, 2033-2136
-
-**Contains:**
-- Probability density plots (treatment effects distribution)
-- Pre-post scatter plots
-- Pre-post difference plots
-- Time series plots (3-wave: pre, post, recontact)
-- Coefficient plots (treatment effects visualization)
-
-**Plot variations:**
-- By treatment status
-- By rumor type
-- By party identification
-- By conspiracy beliefs
-- Collapsed vs. disaggregated versions
-- Main survey vs. recontact comparisons
-
-**Outcomes visualized:**
-- Confidence in ballot counting (own, county, national)
-- Belief in election rumors (specific and pooled)
-- CISA question responses
-
-### 5. functions/tables.R (393 lines)
-**Extracted from:** prebunk.R lines 335-462, 1600-1985
-
-**Contains:**
-- Summary statistics generation (weighted and unweighted)
-- Factor variable summaries
-- Cross-wave comparison tables
-- Proportion tables (confidence thresholds)
-- LaTeX table export
-
-**Table types:**
-- Descriptive statistics by group
-- Factor variable distributions
-- Pre/post/recontact proportions
-- By party identification
-- By rumor type
-- Confidence interval calculations
-
-### 6. R/main_analysis.R (27 lines)
-**Main orchestration script**
-
-**Execution order:**
-1. Load configuration (config.R)
-2. Load helper functions (helper_functions.R from parent directory)
-3. Process data (data_processing.R)
-4. Generate tables (tables.R)
-5. Run models (modeling.R)
-6. Create plots (plotting.R)
+Replication code for all analyses, figures, and tables reported in *Towards Generalizable AI-Assisted Misinformation Inoculation: Protecting Confidence Against False Election Narratives*.
 
 ## Usage
+1. **Clone or download the repository** to any local directory; the main analysis script automatically detects the repository root.
+2. **Acquire the raw survey files** (released upon publication) and place them inside `data/raw/`:
+   - `caltech_elections_august24.sav`
+   - `caltech_elections_augustrecontact24.sav`
+3. **Install required R packages** listed in `config/config.R` (survey design, tidyverse, plotting, and table-export dependencies).
+4. **Run the full pipeline** with `Rscript R/main_analysis.R` from the repository root (or `Rscript code_draft/R/main_analysis.R` from the parent project). The script sources every module, processes data, runs balance checks, estimates all models, and exports tables/figures.
+5. **Choose your balance-check mode** by keeping either `balance_and_checks_quick.R` (cached permutations) or `balance_and_checks.R` (full permutation routine) active inside `R/main_analysis.R`. Regenerate the cached draws via `functions/balance_and_checks_permutations.R` if needed.
 
-To run the complete analysis:
+Outputs include the processed dataset (`prebunk_full.csv`), LaTeX tables, and PDF figures, all placed in the working directory defined within `R/main_analysis.R`.
 
-```r
-# Set working directory to project root
-setwd("/Users/mlinegar/code/prebunk2024")
+Set the `PREBUNK_PROJECT_ROOT` environment variable if you need to point the scripts to a different project root (e.g., when running inside a larger workspace while keeping raw data elsewhere); otherwise the repository root is used by default.
 
-# Run the main analysis script
-source("./code_draft/R/main_analysis.R")
-```
+## Repository Contents
+- `config/config.R` – Central configuration for package loading, factor labels, treatment definitions, survey weights, and file-path constants shared across modules.
+- `R/main_analysis.R` – Orchestrates the entire replication workflow by sourcing configuration, helpers, data processing, balance checks, modeling, table creation, and plotting scripts.
+- `functions/data_processing.R` – Reads the raw survey datasets, harmonizes variables, builds indices (misinformation susceptibility, populism, conspiracy), merges the main and recontact waves, applies weights, and writes the cleaned analysis file.
+- `functions/balance_and_checks.R` – Comprehensive randomization-check pipeline, including permutation-based difference tests and diagnostic exports.
+- `functions/balance_and_checks_permutations.R` – Standalone routine that regenerates the cached permutation draws consumed by the quick balance-check script.
+- `functions/balance_and_checks_quick.R` – Loads stored permutation summaries to provide rapid balance diagnostics during typical replication runs.
+- `functions/modeling_helpers.R` – Shared helper functions for model formulas, label management, weighting utilities, and tidy output handling.
+- `functions/modeling.R` – Core regression estimators that reproduce pooled treatment effects, rumor-specific models, recontact effects, and other headline estimates.
+- `functions/modeling_interactions.R` – Interaction models covering treatment variants, ideology, party identification, conspiracy beliefs, and other moderators highlighted in the manuscript and appendix.
+- `functions/modeling_sensitivity.R` – Robustness checks (e.g., attentive-only samples, alternative specifications) reported in supplementary materials.
+- `functions/plotting.R` – Generates main-text visualizations: treatment effect plots, time-series comparisons, density plots, and other publication figures.
+- `functions/plotting_interactions.R` – Produces interaction-focused graphics, including subgroup coefficient plots for the appendix.
+- `functions/tables.R` – Builds descriptive, regression, and proportion tables, exporting LaTeX-ready files for both the paper and supplementary documents.
+- `functions/verify_appendix_tables.R` – Internal validation script that cross-checks appendix table ordering and contents before manuscript exports.
+- `helper_functions.R` – Shared utility functions for handling skipped values, plotting defaults, and file-output helpers.
+- `data/raw/` – Placeholder directory for the raw `.sav` files (ignored by Git; populate locally before running).
+- `REGRESSION_PLOT_MAPPING.md` – Reference mapping between regression objects and the figures/tables that report them, useful for cross-walking reviewer requests.
+- `.gitignore` – Project-level ignore rules for local artifacts (R histories, logs, OS files, generated outputs).
 
-Alternatively, source individual files for specific tasks:
+## Data Availability
+- `caltech_elections_august24.sav` (main wave) – released upon publication, to be located in `data/raw/`.
+- `caltech_elections_augustrecontact24.sav` (recontact wave) – released upon publication, to be located in `data/raw/`.
 
-```r
-# Just data processing
-source("./code_draft/config/config.R")
-source("./helper_functions.R")
-source("./code_draft/functions/data_processing.R")
+## Outputs
+- **Processed data:** `prebunk_full.csv`, produced by `functions/data_processing.R`.
+- **Tables:** LaTeX files summarizing descriptive statistics, pooled and rumor-specific regressions, interaction models, and sensitivity analyses.
+- **Figures:** PDF plots for main-text and appendix visuals, including pooled treatment effects, subgroup comparisons, and confidence trajectories.
 
-# Just create plots (requires data processing first)
-source("./code_draft/functions/plotting.R")
-```
-
-## Dependencies
-
-**Required R packages:**
-- survey, forcats, haven, tidyverse, dplyr, ggplot2
-- margins, effects, svyVGAM, stargazer, broom
-- scales, moments, kableExtra, rlang, effsize
-- wesanderson, stringr, data.table, ggrepel, ggpp, purrr, see, xtable
-
-**Required data files:**
-- caltech_elections_august24.sav
-- caltech_elections_augustrecontact24.sav
-- helper_functions.R (in parent directory)
-
-## Output Files
-
-**Data:**
-- prebunk_full.csv (processed dataset)
-
-**Tables (LaTeX .tex files):**
-- Summary statistics (overall, by group, weighted/unweighted)
-- Regression tables (pooled, by rumor, interactions)
-- Proportion tables (by party, by rumor)
-
-**Plots (PDF files):**
-- Probability density plots
-- Pre-post scatter plots
-- Time series plots
-- Coefficient plots
-- Treatment effects visualizations
-
-## Original File Information
-
-**Original file:** prebunk.R (2136 lines)
-**Modularized into:** 6 files (2064 lines total, plus documentation)
-**Extraction date:** 2025
-
-## Notes
-
-- All code has been extracted exactly as it appears in the original file
-- No modifications or improvements have been made to the code logic
-- Comments and structure from the original file are preserved
-- The helper_functions.R file from the parent directory is still required
-- File paths in config.R may need adjustment for different systems
+Ensure that any newly released data are added to the specified location and paths in `config/config.R` are updated before running the pipeline.

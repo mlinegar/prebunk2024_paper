@@ -1,7 +1,25 @@
 .DS_Store
+Thumbs.db
+
 .Rhistory
+.Rapp.history
 .RData
 .Ruserdata
 .Rproj.user/
-*.log
+*.Rproj
 
+# Logs and document build artifacts
+*.log
+*.aux
+*.out
+*.toc
+*.synctex.gz
+
+# Generated analysis outputs
+prebunk_full.csv
+outputs/
+figures/
+tables/
+
+# Raw data (local only)
+*.sav

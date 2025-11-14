@@ -35,10 +35,11 @@ library(see)
 library(xtable)
 
 #### Define key fixed variables ####
-# data_dir <- "."
-data_dir <- "/Users/mlinegar/code/prebunk2024"
-data_file <- "caltech_elections_august24.sav"
-recontact_file <- "caltech_elections_augustrecontact24.sav"
+# Allow overriding the project root via environment variable
+project_root <- Sys.getenv("PREBUNK_PROJECT_ROOT", unset = getwd())
+data_dir <- project_root
+data_file <- file.path("data", "raw", "caltech_elections_august24.sav")
+recontact_file <- file.path("data", "raw", "caltech_elections_augustrecontact24.sav")
 
 # Define interaction variables to test
 # Each will generate separate regression tables
