@@ -21,10 +21,29 @@ cat("This may take several minutes...\n\n")
 if (!require("sandwich")) install.packages("sandwich")
 library(sandwich)
 
-# Set output directory
-output_dir <- file.path(data_dir, "Election Myths Stories/data")
-if (!dir.exists(output_dir)) {
-  dir.create(output_dir, recursive = TRUE)
+# Allow this script to be run directly with:
+#   Rscript functions/balance_and_checks_permutations.R
+# When sourced from R/main_analysis.R, these objects already exist.
+if (!exists("data_dir") || !exists("dat_final")) {
+  cmd_args <- commandArgs(trailingOnly = FALSE)
+  file_flag <- "--file="
+  file_arg <- cmd_args[grepl(file_flag, cmd_args)]
+  repo_root <- if (length(file_arg) > 0) {
+    normalizePath(file.path(dirname(sub(file_flag, "", file_arg[1])), ".."))
+  } else {
+    normalizePath(getwd())
+  }
+  setwd(repo_root)
+  source(file.path(repo_root, "config", "config.R"))
+  source(file.path(repo_root, "helper_functions.R"))
+  source(file.path(repo_root, "functions", "data_processing.R"))
+}
+
+# Store computationally expensive permutation results separately so quick
+# replication runs can reuse them.
+permutation_cache_dir <- file.path(data_dir, "data", "cache")
+if (!dir.exists(permutation_cache_dir)) {
+  dir.create(permutation_cache_dir, recursive = TRUE)
 }
 
 # =============================================================================
@@ -105,8 +124,8 @@ wald_results <- data.frame(
   n_permutations = n_sims
 )
 
-write.csv(wald_results, file.path(output_dir, "balance_wald_test.csv"), row.names = FALSE)
-cat(sprintf("\nWald test results saved to: %s\n", file.path(output_dir, "balance_wald_test.csv")))
+write.csv(wald_results, file.path(permutation_cache_dir, "balance_wald_test.csv"), row.names = FALSE)
+cat(sprintf("\nWald test results saved to: %s\n", file.path(permutation_cache_dir, "balance_wald_test.csv")))
 
 # =============================================================================
 # DIFFERENTIAL ATTRITION PERMUTATION TESTS
@@ -259,8 +278,8 @@ if ("weight_recontact" %in% names(dat_final)) {
     n_permutations = n_sims_attrition
   )
 
-  write.csv(attrition_results, file.path(output_dir, "attrition_tests.csv"), row.names = FALSE)
-  cat(sprintf("\nAttrition test results saved to: %s\n", file.path(output_dir, "attrition_tests.csv")))
+  write.csv(attrition_results, file.path(permutation_cache_dir, "attrition_tests.csv"), row.names = FALSE)
+  cat(sprintf("\nAttrition test results saved to: %s\n", file.path(permutation_cache_dir, "attrition_tests.csv")))
 
 } else {
   cat("\nNo recontact data found - skipping attrition permutation tests.\n")
@@ -270,7 +289,7 @@ if ("weight_recontact" %in% names(dat_final)) {
     permutation_p_value = c(NA, NA),
     n_permutations = NA
   )
-  write.csv(attrition_results, file.path(output_dir, "attrition_tests.csv"), row.names = FALSE)
+  write.csv(attrition_results, file.path(permutation_cache_dir, "attrition_tests.csv"), row.names = FALSE)
 }
 
 # =============================================================================
@@ -281,7 +300,7 @@ cat("\n=========================================================================
 cat("Permutation tests complete!\n")
 cat("=============================================================================\n")
 cat("\nFiles created:\n")
-cat(sprintf("- %s\n", file.path(output_dir, "balance_wald_test.csv")))
-cat(sprintf("- %s\n", file.path(output_dir, "attrition_tests.csv")))
+cat(sprintf("- %s\n", file.path(permutation_cache_dir, "balance_wald_test.csv")))
+cat(sprintf("- %s\n", file.path(permutation_cache_dir, "attrition_tests.csv")))
 cat("\nThese files will be loaded automatically by balance_and_checks_quick.R\n")
 cat("\n")

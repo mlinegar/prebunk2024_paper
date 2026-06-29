@@ -350,8 +350,8 @@ pre_post_diff_plot(
   pre_var = Pre_Confidence_Country_Ballots,
   diff_var = Confidence_Country_Ballots_Diff,
   treatment_var = Election_Rumor_Placebo_Randomization,
-  title = "Confidence in National Election: Pre-Treatment vs Change (Post-Treatment - Pre-Treatment)",
-  subtitle = "By Treatment Status",
+  title = "Confidence in National Election\nPre-Treatment vs. Change",
+  subtitle = "Post-treatment minus pre-treatment, by treatment status",
   x_label = "Pre-Treatment Confidence in National Election",
   y_label = "Change in Confidence National Election",
   weight_var = weight
@@ -409,9 +409,8 @@ pre_post_diff_plot(
   pre_var = Rumor,
   diff_var = Rumor_Diff,
   treatment_var = Election_Rumor_Placebo_Randomization,
-  title = "Confidence in Assigned Election Rumor:
-Pre-Treatment vs Change (Post-Treatment - Pre-Treatment)",
-  subtitle = "By Treatment Status",
+  title = "Confidence in Assigned Election Rumor\nPre-Treatment vs. Change",
+  subtitle = "Post-treatment minus pre-treatment, by treatment status",
   x_label = "Pre-Treatment Confidence in Assigned Election Rumor",
   y_label = "Change in Confidence in Assigned Election Rumor",
   weight_var = weight
@@ -794,8 +793,8 @@ for (weight_type in c("weighted", "unweighted")) {
 
   main_models <- list(
     "Assigned Rumor (Pooled)" = list(
-      "Confidence" = cisa_models_current[1],
-      "Confidence (Recontact)" = cisa_models_current[2]
+      "Confidence" = cisa_models_current[[1]],
+      "Confidence (Recontact)" = cisa_models_current[[2]]
     ),
     "National Ballots" = list(
       "Confidence" = pooled_models_current[[3]],
@@ -805,8 +804,7 @@ for (weight_type in c("weighted", "unweighted")) {
 
   main_models_plot <- plot_coefficients(
     main_models,
-    title = "Treatment Effect Estimates
-  Confidence that: Election Rumors are True, Ballots are Accurately Counted Nationally",
+    title = "Treatment Effect Estimates\nRumor Belief and National Ballot Confidence",
     subtitle = subtitle_with_refs(is_weighted, refs_main),
     y_label = "Model",
     debug = TRUE

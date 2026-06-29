@@ -18,8 +18,13 @@ Thumbs.db
 # Generated analysis outputs
 prebunk_full.csv
 outputs/
+writing_draft/
 figures/
 tables/
+Election Myths Stories/
+sensitivity_*.csv
+sensitivity_*_table.tex
+Rplots.pdf
 
 # Raw data (local only)
 *.sav

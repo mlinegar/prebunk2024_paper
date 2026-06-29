@@ -117,3 +117,6 @@ cat("\n=========================================================================
 cat("All interaction models generated!\n")
 cat("Tables created for:", paste(int_vars, collapse = ", "), "\n")
 cat("=============================================================================\n")
+
+# Publication-friendly alias used by the manuscript supplement.
+copy_writing_table_alias("int_pooled_models_partyidentification_weighted.tex", "party_models.tex", "tab:party")

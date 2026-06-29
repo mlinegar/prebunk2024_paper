@@ -18,10 +18,21 @@ cat("===========================================================================
 if (!require("sandwich")) install.packages("sandwich")
 library(sandwich)
 
-# Set output directory for tables
-output_dir <- file.path(data_dir, "Election Myths Stories/data")
+# Set output directory for generated tables and lightweight diagnostics.
+output_dir <- if (exists("get_writing_path", mode = "function")) {
+  get_writing_path("tables")
+} else {
+  file.path(data_dir, "writing_draft", "tables")
+}
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
+}
+
+# Cached permutation p-values are stored separately so the default pipeline can
+# run quickly while still reporting the preregistered permutation diagnostics.
+permutation_cache_dir <- file.path(data_dir, "data", "cache")
+if (!dir.exists(permutation_cache_dir)) {
+  dir.create(permutation_cache_dir, recursive = TRUE)
 }
 
 # =============================================================================
@@ -337,7 +348,7 @@ cat(sprintf("\nObserved Wald statistic: %.3f\n", W_obs))
 # LOAD PERMUTATION TEST RESULTS
 # =============================================================================
 
-wald_csv_path <- file.path(output_dir, "balance_wald_test.csv")
+wald_csv_path <- file.path(permutation_cache_dir, "balance_wald_test.csv")
 if (file.exists(wald_csv_path)) {
   cat("\nLoading permutation test results from CSV...\n")
   wald_results <- read.csv(wald_csv_path)
@@ -429,7 +440,7 @@ if ("weight_recontact" %in% names(dat_final)) {
   # LOAD PERMUTATION TEST RESULTS FOR ATTRITION
   # =============================================================================
 
-  attrition_csv_path <- file.path(output_dir, "attrition_tests.csv")
+  attrition_csv_path <- file.path(permutation_cache_dir, "attrition_tests.csv")
   if (file.exists(attrition_csv_path)) {
     cat("\nLoading attrition permutation test results from CSV...\n")
     attrition_results <- read.csv(attrition_csv_path)

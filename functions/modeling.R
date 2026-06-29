@@ -527,6 +527,14 @@ hitl_table_unweighted <- create_ols_summary_table(
 )
 cat("Motivated and HITL tables (weighted and unweighted) created.\n")
 
+# Publication-friendly aliases used by the manuscript supplement. Keep these
+# aliases current so a fresh run does not rely on stale hand-copied tables.
+copy_writing_table_alias("pooled_models_table_weighted.tex", "main_models.tex", "tab:main")
+copy_writing_table_alias("hitl_models_table_weighted.tex", "Human_in_the_Loop_models.tex", "tab:human_in_the_loop")
+copy_writing_table_alias("cisa_rumor_models_table_weighted.tex", "rumor_models.tex", "tab:rumor")
+copy_writing_table_alias("recontact_pooled_models_table_weighted.tex", "Other_Election_Integrity_models.tex", "tab:other_election_integrity")
+copy_writing_table_alias("cisa_models_table_weighted.tex", "cisa_models_table.tex", "tab:cisa_models")
+
 #### RANDOM ASSORTED STATISTICS IN PAPER ####
 t.test(
   dat_final$Post_Confidence_Country_Ballots[dat_final$Election_Rumor_Placebo_Randomization=="Placebo"],

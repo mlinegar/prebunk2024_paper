@@ -15,6 +15,40 @@ library(tidyr)
 library(forcats)
 library(forcats)
 
+clean_interaction_display_name <- function(x) {
+  x <- str_replace_all(x, "_", " ")
+  x <- str_replace_all(x, "([a-z])([A-Z])", "\\1 \\2")
+  x <- str_squish(x)
+
+  case_when(
+    str_detect(x, regex("^party identification$", ignore_case = TRUE)) ~ "Party Identification",
+    str_detect(x, regex("^political interest$", ignore_case = TRUE)) ~ "Political Interest",
+    str_detect(x, regex("^mist correct$", ignore_case = TRUE)) ~ "MIST-8 Score",
+    str_detect(x, regex("^populism score$", ignore_case = TRUE)) ~ "Populism Score",
+    str_detect(x, regex("^conspiracy score$", ignore_case = TRUE)) ~ "Conspiracy Belief",
+    str_detect(x, regex("^human in the loop$", ignore_case = TRUE)) ~ "Human-in-the-Loop Status",
+    TRUE ~ tools::toTitleCase(tolower(x))
+  )
+}
+
+clean_interaction_outcome_name <- function(x) {
+  case_when(
+    x == "Post_Confidence_Country_Ballots" ~ "National Ballot\nConfidence",
+    x == "Post_Confidence_County_Ballots" ~ "County Ballot\nConfidence",
+    x == "Post_Confidence_Own_Ballot" ~ "Own Ballot\nConfidence",
+    x == "Rumor_Post" ~ "Rumor\nConfidence",
+    x == "Rumor_Recontact" ~ "Rumor Confidence\n(Recontact)",
+    TRUE ~ str_replace_all(x, "_", " ") %>% str_wrap(24)
+  )
+}
+
+clean_interaction_group_name <- function(x) {
+  x <- str_replace_all(x, "_", " ")
+  x <- str_replace(x, regex("^Pol Interest:\\s*", ignore_case = TRUE), "")
+  x <- str_replace(x, regex("^Political Interest:\\s*", ignore_case = TRUE), "")
+  str_squish(x)
+}
+
 #' Plot Interaction Coefficients
 #'
 #' Creates coefficient plots showing how treatment effects vary by moderator.
@@ -43,16 +77,17 @@ plot_interaction_coefficients <- function(model_list,
   font_sizes <- get_plot_font_sizes()
   if (is.null(point_size)) point_size <- defaults$point_size
   if (is.null(text_size)) text_size <- defaults$text_size
-  axis_title_size <- max(font_sizes$axis_title, text_size)
-  axis_text_size <- max(font_sizes$axis_text, text_size * 0.9)
-  title_size <- max(font_sizes$title - 2, text_size * 1.3)
-  subtitle_size <- max(font_sizes$subtitle - 4, text_size * 0.9)
-  legend_title_size <- max(font_sizes$legend_title, text_size * 0.85)
-  legend_text_size <- max(font_sizes$legend_text, text_size * 0.8)
-  strip_text_size <- max(font_sizes$strip_text, text_size)
+  axis_title_size <- max(18, font_sizes$axis_title * 0.72)
+  axis_text_size <- max(14, font_sizes$axis_text * 0.66)
+  title_size <- max(22, font_sizes$title * 0.80)
+  subtitle_size <- max(16, font_sizes$subtitle * 0.82)
+  legend_title_size <- max(16, font_sizes$legend_title * 0.75)
+  legend_text_size <- max(15, font_sizes$legend_text * 0.72)
+  strip_text_size <- max(17, font_sizes$strip_text * 0.68)
   wrap_width_current <- defaults$wrap_width
+  interaction_display_name <- clean_interaction_display_name(interaction_var_name)
   plot_subtitle <- if (is.null(subtitle)) {
-    paste("Treatment Effects by", interaction_var_name)
+    paste("Treatment Effects by", interaction_display_name)
   } else {
     subtitle
   }
@@ -161,16 +196,15 @@ plot_interaction_coefficients <- function(model_list,
     mutate(
       # Clean up outcome names
       outcome_clean = str_remove(outcome, "Pooled_|Recontact_") %>%
-        str_replace_all("_", " ") %>%
-        str_wrap(defaults$wrap_width),
+        clean_interaction_outcome_name(),
       # Clean up group names
       group_label = if_else(
         effect_type == "Main Effect",
         "Treatment Effect",
-        str_replace_all(group, "_", " ")
+        clean_interaction_group_name(group)
       ),
       group_label = format_coef_labels(group_label, wrap_width = wrap_width_current),
-      term_clean = format_coef_labels(str_replace_all(term_clean, "_", " "),
+      term_clean = format_coef_labels(clean_interaction_group_name(term_clean),
                                       wrap_width = wrap_width_current),
       # Order by outcome and effect type
       plot_order = paste(outcome, effect_type, group)
@@ -185,7 +219,7 @@ plot_interaction_coefficients <- function(model_list,
         group_label = if_else(
           effect_type == "Main Effect",
           "Treatment Effect",
-          str_replace_all(group, "_", " ")
+          clean_interaction_group_name(group)
         ),
         group_label = format_coef_labels(group_label, wrap_width = wrap_width_current)
       )
@@ -204,7 +238,7 @@ plot_interaction_coefficients <- function(model_list,
         height = defaults$error_bar_height,
         size = 0.6
       ) +
-      facet_wrap(~ outcome_clean, ncol = 1, scales = "free_y") +
+      facet_wrap(~ outcome_clean, ncol = 2, scales = "free_y") +
       labs(
         x = "Treatment Effect Estimate",
         y = NULL,
@@ -212,6 +246,7 @@ plot_interaction_coefficients <- function(model_list,
         subtitle = plot_subtitle,
         color = "Significance"
       ) +
+      scale_x_continuous(breaks = scales::breaks_pretty(n = 3)) +
       scale_color_manual(values = defaults$color_values) +
       theme_minimal() +
       theme(
@@ -225,8 +260,9 @@ plot_interaction_coefficients <- function(model_list,
         legend.position = "bottom",
         legend.title = element_text(face = "bold", size = legend_title_size),
         legend.text = element_text(size = legend_text_size),
-        panel.spacing = unit(1, "lines"),
-        plot.margin = margin(18, 18, 18, 18)
+        panel.spacing = unit(1.4, "lines"),
+        plot.title.position = "plot",
+        plot.margin = margin(18, 36, 18, 24)
       )
 
   } else {
@@ -245,7 +281,7 @@ plot_interaction_coefficients <- function(model_list,
         height = defaults$error_bar_height,
         size = 0.6
       ) +
-      facet_wrap(~ outcome_clean, ncol = 1, scales = "free_y") +
+      facet_wrap(~ outcome_clean, ncol = 2, scales = "free_y") +
       labs(
         x = "Coefficient Estimate",
         y = NULL,
@@ -254,6 +290,7 @@ plot_interaction_coefficients <- function(model_list,
         color = "Significance",
         shape = "Effect Type"
       ) +
+      scale_x_continuous(breaks = scales::breaks_pretty(n = 3)) +
       scale_color_manual(values = defaults$color_values) +
       theme_minimal() +
       theme(
@@ -266,7 +303,9 @@ plot_interaction_coefficients <- function(model_list,
         legend.position = "bottom",
         legend.title = element_text(face = "bold", size = legend_title_size),
         legend.text = element_text(size = legend_text_size),
-        plot.margin = margin(18, 18, 18, 18)
+        panel.spacing = unit(1.4, "lines"),
+        plot.title.position = "plot",
+        plot.margin = margin(18, 36, 18, 24)
       )
   }
 
@@ -436,7 +475,8 @@ create_all_interaction_plots <- function(int_vars,
     plot_obj <- plot_interaction_coefficients(
       model_list = model_list,
       interaction_var_name = int_var_name,
-      title = paste("Heterogeneous Treatment Effects by", int_var_name),
+      title = sprintf("Heterogeneous Treatment Effects\nby %s",
+                      clean_interaction_display_name(int_var_name)),
       subtitle = paste0("(", tools::toTitleCase(weight_type), " Models)"),
       show_combined = TRUE
     )
@@ -486,8 +526,8 @@ create_interaction_summary_plot <- function(focus_moderators = NULL,
   axis_title_size <- max(font_sizes$axis_title, text_size)
   axis_text_y_size <- max(font_sizes$axis_text, text_size * 0.9)
   axis_text_x_size <- max(font_sizes$axis_text, text_size * 0.85)
-  title_size <- max(font_sizes$title, text_size * 1.35)
-  subtitle_size <- max(font_sizes$subtitle - 4, text_size * 0.9)
+  title_size <- max(font_sizes$title - 4, text_size * 1.1)
+  subtitle_size <- max(font_sizes$subtitle - 2, text_size * 0.82)
   strip_text_size <- max(font_sizes$strip_text, text_size)
   legend_title_size <- max(font_sizes$legend_title, text_size * 0.85)
   legend_text_size <- max(font_sizes$legend_text, text_size * 0.8)
@@ -527,13 +567,13 @@ create_interaction_summary_plot <- function(focus_moderators = NULL,
     TRUE ~ stringr::str_replace_all(focus_outcome, "_", " ")
   )
   axis_x_label <- sprintf("Treatment Effect on %s", outcome_display)
-  plot_title <- if (!is.null(primary_outcome_value) && identical(focus_outcome, primary_outcome_value)) {
-    "Heterogeneous Treatment Effects by Key Moderators"
+  plot_title <- if (length(focus_moderators) == 1 && identical(focus_moderators, "Conspiracy_Score")) {
+    "Heterogeneous Treatment Effects\nBy Conspiracy Belief"
   } else {
-    sprintf("Heterogeneous Treatment Effects by Key Moderators – %s", outcome_display)
+    sprintf("Heterogeneous Treatment Effects\n%s", outcome_display)
   }
   default_caption <- sprintf("Estimated treatment effects on %s by moderator (weighted models).", tolower(outcome_display))
-  x_limits <- if (focus_outcome %in% c("Rumor_Post", "Rumor_Recontact")) c(-1.25, 0.75) else c(-0.75, 0.75)
+  x_limits <- if (focus_outcome %in% c("Rumor_Post", "Rumor_Recontact")) c(-1.25, 0.75) else c(-1, 1)
 
   if (exists("variables_in_model_labels", envir = .GlobalEnv)) {
     controls_raw <- get("variables_in_model_labels", envir = .GlobalEnv)
@@ -595,16 +635,19 @@ create_interaction_summary_plot <- function(focus_moderators = NULL,
     return(NULL)
   }
 
-  baseline_note <- "Treatment Effect row shows baseline subgroup (Democrat, Liberal; continuous moderators at 0)."
-  interaction_note <- "Interaction rows: Treatment × subgroup differences relative to baseline."
-  controls_note <- "Controls: baseline outcome, rumor fixed effects, core demographics, attitudinal covariates."
-  subtitle_parts <- c(
-    sprintf("Models: %s survey-weighted OLS", tools::toTitleCase(weight_type)),
-    baseline_note,
-    interaction_note,
-    controls_note
+  model_label <- if (identical(weight_type, "weighted")) {
+    "Survey-weighted"
+  } else {
+    tools::toTitleCase(weight_type)
+  }
+  subtitle_text <- paste(
+    sprintf("%s OLS; baseline: Democrat/Liberal or moderator = 0.",
+            model_label),
+    "Controls: baseline outcome, rumor FE, demographics, attitudes.",
+    sep = "\n"
   )
-  subtitle_text <- paste(Filter(nzchar, subtitle_parts), collapse = "\n")
+
+  summary_wrap_width <- if (length(focus_moderators) == 1) 22 else defaults$wrap_width
 
   plot_data <- bind_rows(all_coefs) %>%
     mutate(
@@ -621,7 +664,7 @@ create_interaction_summary_plot <- function(focus_moderators = NULL,
         group %in% c("", NA) ~ paste0("Treatment × ", str_replace_all(moderator, "_", " "), " (per 1-unit increase)"),
         TRUE ~ paste0("Treatment × ", str_replace_all(group, "_", " "))
       ),
-      derived_group = format_coef_labels(derived_group, wrap_width = defaults$wrap_width),
+      derived_group = format_coef_labels(derived_group, wrap_width = summary_wrap_width),
       derived_group = fct_inorder(derived_group)
     ) %>%
     group_by(moderator_clean) %>%
@@ -633,6 +676,7 @@ create_interaction_summary_plot <- function(focus_moderators = NULL,
     ) %>%
     ungroup()
 
+  compact_summary <- dplyr::n_distinct(plot_data$moderator_clean) == 1
   max_rows <- plot_data %>%
     count(moderator_clean) %>%
     pull(n) %>%
@@ -641,9 +685,20 @@ create_interaction_summary_plot <- function(focus_moderators = NULL,
     axis_text_y_size <- axis_text_y_size * 0.9
     axis_text_x_size <- axis_text_x_size * 0.95
   }
+  if (compact_summary) {
+    axis_title_size <- axis_title_size * 0.9
+    axis_text_y_size <- axis_text_y_size * 0.9
+    axis_text_x_size <- axis_text_x_size * 0.95
+    title_size <- title_size * 0.95
+    subtitle_size <- subtitle_size * 0.95
+    strip_text_size <- strip_text_size * 0.95
+    legend_title_size <- legend_title_size * 0.95
+    legend_text_size <- legend_text_size * 0.95
+  }
 
-  plot_title <- format_plot_title_lines(plot_title)
-  subtitle_text <- format_plot_title_lines(subtitle_text)
+  plot_title <- format_plot_title_lines(plot_title, max_width = 60)
+  subtitle_text <- format_plot_title_lines(subtitle_text, max_width = 80)
+  axis_x_label <- format_plot_title_lines(axis_x_label, max_width = if (compact_summary) 30 else 28)
 
   p <- ggplot(plot_data, aes(x = combined_est, y = derived_group_plot, color = significant)) +
     geom_vline(
@@ -684,9 +739,10 @@ create_interaction_summary_plot <- function(focus_moderators = NULL,
       legend.title = element_text(face = "bold", size = legend_title_size),
       legend.text = element_text(size = legend_text_size),
       panel.spacing = unit(1.5, "lines"),
-      plot.margin = margin(10, 10, 10, 10)
+      plot.title.position = "plot",
+      plot.margin = margin(14, 24, 12, 18)
     ) +
-  coord_cartesian(xlim = c(-1, 1))
+  coord_cartesian(xlim = x_limits, clip = "off")
 
   if (!is.null(table_file)) {
     caption_value <- if (is.null(table_caption)) {

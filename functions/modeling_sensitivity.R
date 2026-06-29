@@ -23,23 +23,12 @@ cat(sprintf("Sample 2 (Exclude if failed both): N = %d (%.1f%%)\n",
 cat(sprintf("Sample 3 (Exclude if failed either): N = %d (%.1f%%)\n\n",
             nrow(dat_attentive_strict), 100 * nrow(dat_attentive_strict) / nrow(dat_final)))
 
-cat("DEBUG: Checking dat_final column names:\n")
-cat(sprintf("DEBUG: dat_final has columns (first 30): %s\n", paste(head(names(dat_final), 30), collapse=", ")))
-cat(sprintf("DEBUG: Does dat_final have 'Post_All_Rumors'? %s\n", "Post_All_Rumors" %in% names(dat_final)))
-cat(sprintf("DEBUG: Does dat_final have 'cisa_fake_2'? %s\n", "cisa_fake_2" %in% names(dat_final)))
-
 # =============================================================================
 # CREATE SURVEY DESIGNS FOR ALL THREE SAMPLES
 # =============================================================================
 
 # Sample 1: All respondents
-cat(sprintf("DEBUG: About to create svy_design_all. dat_final columns (140-145): %s\n",
-            paste(names(dat_final)[140:145], collapse=", ")))
 svy_design_all_weighted <- svydesign(data = dat_final, weights = ~weight, id = ~1)
-cat(sprintf("DEBUG: Created svy_design_all. Design columns (140-145): %s\n",
-            paste(names(svy_design_all_weighted$variables)[140:145], collapse=", ")))
-cat(sprintf("DEBUG: Does design have 'Post_All_Rumors'? %s\n",
-            "Post_All_Rumors" %in% names(svy_design_all_weighted$variables)))
 
 # Sample 2: Moderate exclusion (failed both)
 svy_design_moderate_weighted <- svydesign(data = dat_attentive_moderate, weights = ~weight, id = ~1)
@@ -68,7 +57,7 @@ run_models_for_sample <- function(svy_design, sample_name) {
 
   # Recontact models (if data available)
   recontact <- NULL
-  if ("ballotcount_scale_recontact" %in% names(svy_design$variables)) {
+  if (all(recontact_y_var_labels %in% names(svy_design$variables))) {
     recontact <- lapply(recontact_y_var_labels, function(outcome) {
       predictors <- c(paste0(sub("Recontact_", "Pre_", outcome)),
                       "Election_Rumor_Placebo_Randomization",
@@ -77,6 +66,13 @@ run_models_for_sample <- function(svy_design, sample_name) {
       run_regression_for_table(outcome, predictors, svy_design, family = gaussian())
     })
     names(recontact) <- paste0("Recontact_", recontact_y_var_labels)
+  } else {
+    missing_recontact <- setdiff(recontact_y_var_labels, names(svy_design$variables))
+    cat(sprintf(
+      "\nNOTE: Skipping recontact models for %s - missing variables: %s\n",
+      sample_name,
+      paste(missing_recontact, collapse = ", ")
+    ))
   }
 
   # CISA models (All Rumors and All Facts)
@@ -115,34 +111,20 @@ cat("--- Extracting treatment effects ---\n")
 
 # Function to extract treatment effect coefficient
 extract_treatment_coef <- function(model, var_name = "Election_Rumor_Placebo_RandomizationTreatment") {
-  cat(sprintf("DEBUG extract_treatment_coef: Starting extraction for var_name='%s'\n", var_name))
-
   if (is.null(model)) {
-    cat("DEBUG extract_treatment_coef: Model is NULL, returning NA\n")
     return(data.frame(coefficient = NA, se = NA, p_value = NA))
   }
 
   coef_summary <- summary(model)$coefficients
-  cat(sprintf("DEBUG extract_treatment_coef: Got coefficient summary with %d rows\n", nrow(coef_summary)))
-  cat(sprintf("DEBUG extract_treatment_coef: Rownames: %s\n", paste(head(rownames(coef_summary), 10), collapse=", ")))
-  cat(sprintf("DEBUG extract_treatment_coef: Is '%s' in rownames? %s\n", var_name, var_name %in% rownames(coef_summary)))
 
   if (var_name %in% rownames(coef_summary)) {
-    # Print the full row from coefficient summary
-    cat(sprintf("DEBUG extract_treatment_coef: Full coefficient row:\n"))
-    print(coef_summary[var_name, ])
-
-    result <- data.frame(
+    return(data.frame(
       coefficient = coef_summary[var_name, "Estimate"],
       se = coef_summary[var_name, "Std. Error"],
       p_value = coef_summary[var_name, "Pr(>|t|)"]
-    )
-    cat(sprintf("DEBUG extract_treatment_coef: Found coefficient! coef=%.4f, se=%.4f, p=%.4f\n",
-                result$coefficient, result$se, result$p_value))
-    return(result)
+    ))
   }
 
-  cat(sprintf("DEBUG extract_treatment_coef: Variable '%s' NOT found in rownames, returning NA\n", var_name))
   return(data.frame(coefficient = NA, se = NA, p_value = NA))
 }
 
@@ -200,9 +182,18 @@ cat("\nNOTE: Skipping CISA Models comparison - no post-treatment CISA data in wa
 cat("CISA questions were only asked at baseline and recontact.\n")
 
 # Save comparison CSVs
-write.csv(comparison_pooled, file.path(data_dir, "sensitivity_pooled_comparison.csv"), row.names = FALSE)
+sensitivity_output_dir <- if (exists("get_writing_path", mode = "function")) {
+  get_writing_path("tables")
+} else {
+  file.path(data_dir, "writing_draft", "tables")
+}
+if (!dir.exists(sensitivity_output_dir)) {
+  dir.create(sensitivity_output_dir, recursive = TRUE)
+}
+
+write.csv(comparison_pooled, file.path(sensitivity_output_dir, "sensitivity_pooled_comparison.csv"), row.names = FALSE)
 if (exists("comparison_recontact")) {
-  write.csv(comparison_recontact, file.path(data_dir, "sensitivity_recontact_comparison.csv"), row.names = FALSE)
+  write.csv(comparison_recontact, file.path(sensitivity_output_dir, "sensitivity_recontact_comparison.csv"), row.names = FALSE)
 }
 # Skip CISA comparison - no data
 # write.csv(comparison_cisa, file.path(data_dir, "sensitivity_cisa_comparison.csv"), row.names = FALSE)
@@ -216,58 +207,59 @@ cat("\n--- Creating dense comparison tables ---\n")
 # Function to create dense comparison table
 create_dense_comparison_table <- function(comparison_df, model_type, title, label) {
 
+  format_estimate <- function(coefficient, p_value, se) {
+    stars <- dplyr::case_when(
+      is.na(p_value) ~ "",
+      p_value < 0.001 ~ "***",
+      p_value < 0.01 ~ "**",
+      p_value < 0.05 ~ "*",
+      TRUE ~ ""
+    )
+    star_text <- ifelse(stars == "", "", paste0("$^{", stars, "}$"))
+    sprintf("%.3f%s (%.3f)", coefficient, star_text, se)
+  }
+
   # Format: Outcome | All (coef) | Moderate (coef) | Strict (coef)
   table_data <- comparison_df %>%
     mutate(
       Outcome = outcome,
-      `All Respondents` = sprintf("%.3f%s (%.3f)",
-                                  all_coef,
-                                  ifelse(all_p < 0.001, "***",
-                                        ifelse(all_p < 0.01, "**",
-                                              ifelse(all_p < 0.05, "*", ""))),
-                                  all_se),
-      `Exclude Both Failed` = sprintf("%.3f%s (%.3f)",
-                                      moderate_coef,
-                                      ifelse(moderate_p < 0.001, "***",
-                                            ifelse(moderate_p < 0.01, "**",
-                                                  ifelse(moderate_p < 0.05, "*", ""))),
-                                      moderate_se),
-      `Exclude Either Failed` = sprintf("%.3f%s (%.3f)",
-                                        strict_coef,
-                                        ifelse(strict_p < 0.001, "***",
-                                              ifelse(strict_p < 0.01, "**",
-                                                    ifelse(strict_p < 0.05, "*", ""))),
-                                        strict_se)
+      `All Respondents` = format_estimate(all_coef, all_p, all_se),
+      `Exclude Both Failed` = format_estimate(moderate_coef, moderate_p, moderate_se),
+      `Exclude Either Failed` = format_estimate(strict_coef, strict_p, strict_se)
     ) %>%
     select(Outcome, `All Respondents`, `Exclude Both Failed`, `Exclude Either Failed`)
+  table_data <- as.data.frame(table_data)
 
   # Create LaTeX table
-  filename <- file.path(data_dir, sprintf("sensitivity_%s_table.tex", tolower(gsub(" ", "_", model_type))))
+  filename <- file.path(sensitivity_output_dir, sprintf("sensitivity_%s_table.tex", tolower(gsub(" ", "_", model_type))))
 
-  stargazer(table_data,
-            summary = FALSE,
-            title = title,
-            label = label,
-            rownames = FALSE,
-            notes = c("Treatment effect coefficients with standard errors in parentheses.",
-                     sprintf("All: N=%d. Exclude both: N=%d. Exclude either: N=%d.",
-                            nrow(dat_final), nrow(dat_attentive_moderate), nrow(dat_attentive_strict)),
-                     "*** p$<$0.001, ** p$<$0.01, * p$<$0.05"),
-            notes.align = "l",
-            out = filename)
-
-  # Post-process to fix stargazer's asterisk conversion
-  cat(sprintf("DEBUG: Post-processing %s to fix asterisks\n", filename))
-  tex_content <- readLines(filename)
-  asterisk_count_before <- sum(grepl("\\\\textasteriskcentered", tex_content))
-  cat(sprintf("DEBUG: Found %d instances of \\textasteriskcentered\n", asterisk_count_before))
-
-  tex_content <- gsub("\\\\textasteriskcentered", "$^{*}$", tex_content)
-
-  asterisk_count_after <- sum(grepl("\\\\textasteriskcentered", tex_content))
-  cat(sprintf("DEBUG: After replacement: %d instances remain\n", asterisk_count_after))
-
-  writeLines(tex_content, filename)
+  rows <- apply(table_data, 1, function(row) {
+    paste0(paste(row, collapse = " & "), " \\\\")
+  })
+  lines <- c(
+    "",
+    "% Table created by functions/modeling_sensitivity.R",
+    paste0("% Date and time: ", format(Sys.time(), "%a, %b %d, %Y - %H:%M:%S")),
+    "\\begin{table}[!htbp] \\centering",
+    paste0("  \\caption{", title, "}"),
+    paste0("  \\label{", label, "}"),
+    "\\begin{tabular}{@{\\extracolsep{5pt}} cccc}",
+    "\\\\[-1.8ex]\\hline",
+    "\\hline \\\\[-1.8ex]",
+    "Outcome & All Respondents & Exclude Both Failed & Exclude Either Failed \\\\",
+    "\\hline \\\\[-1.8ex]",
+    rows,
+    "\\hline \\\\[-1.8ex]",
+    "\\multicolumn{4}{l}{Treatment effect coefficients with standard errors in parentheses.} \\\\",
+    sprintf(
+      "\\multicolumn{4}{l}{All: N=%d. Exclude both: N=%d. Exclude either: N=%d.} \\\\",
+      nrow(dat_final), nrow(dat_attentive_moderate), nrow(dat_attentive_strict)
+    ),
+    "\\multicolumn{4}{l}{*** $p<0.001$, ** $p<0.01$, * $p<0.05$} \\\\",
+    "\\end{tabular}",
+    "\\end{table}"
+  )
+  writeLines(lines, filename)
 
   cat(sprintf("Created %s\n", filename))
 
@@ -340,8 +332,8 @@ cat("\nStrict exclusion (either failed) vs. All respondents:\n")
 print(test_strict_vs_all, digits = 3)
 
 # Save test results
-write.csv(test_moderate_vs_all, file.path(data_dir, "sensitivity_test_moderate_vs_all.csv"), row.names = FALSE)
-write.csv(test_strict_vs_all, file.path(data_dir, "sensitivity_test_strict_vs_all.csv"), row.names = FALSE)
+write.csv(test_moderate_vs_all, file.path(sensitivity_output_dir, "sensitivity_test_moderate_vs_all.csv"), row.names = FALSE)
+write.csv(test_strict_vs_all, file.path(sensitivity_output_dir, "sensitivity_test_strict_vs_all.csv"), row.names = FALSE)
 
 # =============================================================================
 # SUMMARY STATISTICS
@@ -382,6 +374,7 @@ if (n_sig_moderate == 0 && n_sig_strict == 0) {
 
 cat("\n=============================================================================\n")
 cat("Files created:\n")
+cat(sprintf("Output directory: %s\n", sensitivity_output_dir))
 cat("- sensitivity_pooled_table.tex (dense 3-column comparison)\n")
 if (exists("comparison_recontact")) cat("- sensitivity_recontact_table.tex (dense 3-column comparison)\n")
 cat("NOTE: sensitivity_cisa_table.tex NOT created - no post-treatment CISA data in wave 1\n")

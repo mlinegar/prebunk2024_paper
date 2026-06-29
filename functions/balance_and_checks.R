@@ -15,10 +15,21 @@ cat("===========================================================================
 if (!require("sandwich")) install.packages("sandwich")
 library(sandwich)
 
-# Set output directory for tables
-output_dir <- file.path(data_dir, "Election Myths Stories/data")
+# Set output directory for generated tables and lightweight diagnostics.
+output_dir <- if (exists("get_writing_path", mode = "function")) {
+  get_writing_path("tables")
+} else {
+  file.path(data_dir, "writing_draft", "tables")
+}
 if (!dir.exists(output_dir)) {
   dir.create(output_dir, recursive = TRUE)
+}
+
+# Store computationally expensive permutation results separately so quick
+# replication runs can reuse them.
+permutation_cache_dir <- file.path(data_dir, "data", "cache")
+if (!dir.exists(permutation_cache_dir)) {
+  dir.create(permutation_cache_dir, recursive = TRUE)
 }
 
 # =============================================================================
@@ -373,7 +384,7 @@ wald_results <- data.frame(
   n_permutations = n_sims
 )
 
-write.csv(wald_results, file.path(output_dir, "balance_wald_test.csv"), row.names = FALSE)
+write.csv(wald_results, file.path(permutation_cache_dir, "balance_wald_test.csv"), row.names = FALSE)
 
 # =============================================================================
 # 3. DIFFERENTIAL ATTRITION TESTS
@@ -543,7 +554,7 @@ if ("weight_recontact" %in% names(dat_final)) {
     n_permutations = n_sims_attrition
   )
 
-  write.csv(attrition_results, file.path(output_dir, "attrition_tests.csv"), row.names = FALSE)
+  write.csv(attrition_results, file.path(permutation_cache_dir, "attrition_tests.csv"), row.names = FALSE)
 
 } else {
   cat("\nNo recontact data found - skipping attrition tests.\n")

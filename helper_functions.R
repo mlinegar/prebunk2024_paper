@@ -107,6 +107,23 @@ save_plot_to_writing <- function(filename, plot = NULL, ..., copy_to_root = FALS
   invisible(target_path)
 }
 
+copy_writing_table_alias <- function(source_filename, alias_filename, alias_label = NULL) {
+  source_path <- resolve_writing_path(source_filename, "tables")
+  alias_path <- resolve_writing_path(alias_filename, "tables")
+  if (!file.exists(source_path)) {
+    warning(sprintf("Cannot create table alias; missing source: %s", source_path))
+    return(invisible(FALSE))
+  }
+  file.copy(source_path, alias_path, overwrite = TRUE)
+  if (!is.null(alias_label)) {
+    alias_lines <- readLines(alias_path, warn = FALSE)
+    alias_lines <- sub("\\\\label\\{[^}]+\\}", paste0("\\\\label{", alias_label, "}"), alias_lines)
+    writeLines(alias_lines, alias_path)
+  }
+  cat(sprintf("Table alias created: %s -> %s\n", alias_filename, source_filename))
+  invisible(TRUE)
+}
+
 # Preserve original ggsave for direct access if needed
 if (!exists("ggsave_original", envir = .GlobalEnv)) {
   assign("ggsave_original", ggplot2::ggsave, envir = .GlobalEnv)
@@ -123,17 +140,17 @@ ggsave <- function(filename, plot = ggplot2::last_plot(), ..., copy_to_root = FA
 # Title/subtitle/axis/etc sizes are specified in typographic points because
 # element_text() expects that unit. Annotation sizes map to geom_text size units.
 plot_font_defaults <- list(
-  title = 26,
-  subtitle = 18,
-  axis_title = 24,
-  axis_text = 20,
-  legend_title = 22,
-  legend_text = 20,
-  strip_text = 24,
-  caption = 18,
-  annotation_large = 8.5,
-  annotation_medium = 6.5,
-  annotation_small = 5.2
+  title = 31,
+  subtitle = 23,
+  axis_title = 29,
+  axis_text = 25,
+  legend_title = 27,
+  legend_text = 25,
+  strip_text = 29,
+  caption = 21,
+  annotation_large = 10,
+  annotation_medium = 8,
+  annotation_small = 6.6
 )
 
 get_plot_font_sizes <- function() {
@@ -147,33 +164,20 @@ format_plot_title_lines <- function(title, max_width = 50) {
   if (is.null(title) || is.na(title) || identical(title, "")) {
     return(title)
   }
-  if (grepl("\n", title, fixed = TRUE)) {
-    return(title)
-  }
-  split_on <- function(text, sep, replacement) {
-    idx <- regexpr(sep, text, fixed = TRUE)
-    if (idx == -1) return(NULL)
-    before <- substr(text, 1, idx - 1)
-    after <- substr(text, idx + nchar(sep), nchar(text))
-    paste0(before, replacement, after)
-  }
-  sep_map <- list(`: ` = ":\n", `, ` = ",\n")
-  for (sep in names(sep_map)) {
-    res <- split_on(title, sep, sep_map[[sep]])
-    if (!is.null(res)) return(res)
-  }
-  if (nchar(title) > max_width) {
-    spaces <- gregexpr(" ", title, fixed = TRUE)[[1]]
-    spaces <- spaces[spaces > 0]
-    if (length(spaces) > 0) {
-      mid <- nchar(title) / 2
-      split_pos <- spaces[which.min(abs(spaces - mid))]
-      return(paste0(substr(title, 1, split_pos - 1), "\n", substr(title, split_pos + 1, nchar(title))))
+
+  wrap_line <- function(line) {
+    if (identical(line, "")) return(line)
+    line <- trimws(line)
+    if (nchar(line) <= max_width) {
+      return(line)
     }
-    wrapped <- strwrap(title, width = max_width)
-    return(paste(wrapped, collapse = "\n"))
+    paste(strwrap(line, width = max_width), collapse = "\n")
   }
-  title
+
+  lines <- unlist(strsplit(title, "\n", fixed = TRUE))
+  lines <- trimws(lines)
+  wrapped_lines <- vapply(lines, wrap_line, character(1), USE.NAMES = FALSE)
+  paste(wrapped_lines, collapse = "\n")
 }
 
 
@@ -1221,11 +1225,11 @@ pre_post_plot <- function(data, pre_var, post_var, treatment_var, by_var, rumor_
   axis_title_size_current <- font_sizes$axis_title
   strip_text_size_current <- font_sizes$strip_text
   if (!has_rumor & !has_by) {
-    annotation_size <- font_sizes$annotation_large
+    annotation_size <- 4.7
   } else if (!(has_rumor && has_by)) {
-    annotation_size <- font_sizes$annotation_medium
+    annotation_size <- 3.5
   } else {
-    annotation_size <- font_sizes$annotation_small
+    annotation_size <- 2.8
   }
   if (has_two_facets) {
     axis_text_size_current <- font_sizes$axis_text * 0.85
@@ -1248,7 +1252,7 @@ pre_post_plot <- function(data, pre_var, post_var, treatment_var, by_var, rumor_
 
   if (show_annotations) {
     plot <- plot +
-      ggrepel::geom_text_repel(
+      ggrepel::geom_label_repel(
         data = summary_stats,
         aes(x = mean_x, y = mean_y, 
             label = sprintf(
@@ -1267,14 +1271,17 @@ pre_post_plot <- function(data, pre_var, post_var, treatment_var, by_var, rumor_
           direction = "split"
         )
       ) +
-      geom_text(
+      geom_label(
         data = effect_sizes,
         aes(x = -Inf, y = Inf, 
             label = sprintf("ATT Cohen's d: %.2f\np-value: %.3f", 
                             effect_size, p_value),
             fontface = ifelse(p_value < 0.05, 2, 1)
         ),
-        hjust = -0.1, vjust = 1.1, size = annotation_size * 0.85,
+        hjust = -0.1, vjust = 1.1, size = annotation_size * 0.82,
+        fill = "white",
+        label.size = 0,
+        label.padding = unit(0.08, "lines"),
         inherit.aes = FALSE
       )
   }
@@ -1438,13 +1445,24 @@ pre_post_diff_plot <- function(data, pre_var, diff_var, treatment_var, by_var, r
       )
   }
 
-  # Calculate summary statistics
-  # summary_stats <- calculate_summary_stats(data)
+  # Calculate summary statistics and place labels in fixed panel corners so
+  # ggrepel does not drift into the title/subtitle or stack summaries together.
+  label_group_quos <- list()
+  if (!is.null(by_var_name)) label_group_quos <- append(label_group_quos, list(by_var))
+  if (!is.null(rumor_var_name)) label_group_quos <- append(label_group_quos, list(rumor_var))
+
   summary_stats <- calculate_summary_stats(data) %>%
-    mutate(
-      label_nudge_y = ifelse(!!treatment_var == levels(!!treatment_var)[1], 8, -8),
-      label_nudge_x = ifelse(!!treatment_var == levels(!!treatment_var)[1], 1, -3)
-    )
+    dplyr::group_by(!!!label_group_quos, .add = FALSE) %>%
+    dplyr::arrange(dplyr::desc(mean_diff), .by_group = TRUE) %>%
+    dplyr::mutate(
+      label_rank = dplyr::row_number(),
+      label_target_x = dplyr::if_else(label_rank %% 2 == 1, 6.25, 0.75),
+      label_target_y = dplyr::if_else(label_rank %% 2 == 1, 9.55, -9.55),
+      label_vjust = dplyr::if_else(label_rank %% 2 == 1, 1, 0),
+      label_nudge_x = label_target_x - mean_pre,
+      label_nudge_y = label_target_y - mean_diff
+    ) %>%
+    dplyr::ungroup()
 
   # Function to calculate effect sizes
   calculate_effect_sizes <- function(data) {
@@ -1480,11 +1498,11 @@ pre_post_diff_plot <- function(data, pre_var, diff_var, treatment_var, by_var, r
   axis_title_size_current <- font_sizes$axis_title
   strip_text_size_current <- font_sizes$strip_text
   if (!has_rumor & !has_by) {
-    annotation_size <- font_sizes$annotation_large
+    annotation_size <- 4.15
   } else if (!(has_rumor && has_by)) {
-    annotation_size <- font_sizes$annotation_medium
+    annotation_size <- 3.45
   } else {
-    annotation_size <- font_sizes$annotation_small
+    annotation_size <- 2.95
   }
   if (has_two_facets) {
     axis_text_size_current <- font_sizes$axis_text * 0.85
@@ -1542,20 +1560,21 @@ pre_post_diff_plot <- function(data, pre_var, diff_var, treatment_var, by_var, r
          x = x_label,
          y = y_label,
          color = "Treatment") +
-    coord_cartesian(xlim = c(0,10), ylim = c(-10,10)) +
+    coord_cartesian(xlim = c(0,10), ylim = c(-10,10), clip = "off") +
     facet_grid(vars(!!rumor_var), vars(!!by_var)) +
     theme_minimal() +
     theme(
       legend.position = "bottom",
       legend.title = element_text(size = font_sizes$legend_title, face = "bold"),
       legend.text = element_text(size = font_sizes$legend_text),
-      plot.title = element_text(size = font_sizes$title, face = "bold", hjust = 0),
+      plot.title = element_text(size = font_sizes$title, face = "bold", hjust = 0, margin = margin(b = 4)),
       plot.title.position = "plot",
-      plot.subtitle = element_text(size = font_sizes$subtitle, hjust = 0),
+      plot.subtitle = element_text(size = font_sizes$subtitle, hjust = 0, margin = margin(b = 10)),
       axis.title = element_text(size = axis_title_size_current),
       axis.text = element_text(size = axis_text_size_current),
       strip.text = element_text(size = strip_text_size_current, face = "bold"),
-      panel.grid.minor = element_blank()
+      panel.grid.minor = element_blank(),
+      plot.margin = margin(12, 18, 12, 18)
     ) +
     # scale_y_continuous(labels=scales::label_number(accuracy=1)) + 
     # scale_x_continuous(labels=scales::label_number(accuracy=1)) +
@@ -1574,11 +1593,25 @@ pre_post_diff_plot <- function(data, pre_var, diff_var, treatment_var, by_var, r
 
   if (show_annotations) {
     plot <- plot +
-      ggrepel::geom_text_repel(
+      geom_segment(
         data = summary_stats,
-        aes(x = mean_pre, y = mean_diff, 
+        aes(
+          x = mean_pre,
+          y = mean_diff,
+          xend = label_target_x,
+          yend = label_target_y,
+          color = !!treatment_var
+        ),
+        inherit.aes = FALSE,
+        linewidth = 0.45,
+        show.legend = FALSE
+      ) +
+      geom_label(
+        data = summary_stats,
+        aes(x = label_target_x, y = label_target_y,
+            vjust = label_vjust,
             label = sprintf(
-              "%s\nMean (pre, post, diff): (%.2f, %.2f, %.2f)\nSD (pre, post, diff): (%.2f, %.2f, %.2f)\n95%% CI pre: [%.2f, %.2f]\n95%% CI post: [%.2f, %.2f]\n95%% CI diff: [%.2f, %.2f]\nn: %d",
+              "%s\nMean: pre %.2f, post %.2f, diff %.2f\nSD: pre %.2f, post %.2f, diff %.2f\n95%% CI pre: [%.2f, %.2f]\n95%% CI post: [%.2f, %.2f]\n95%% CI diff: [%.2f, %.2f]\nn: %d",
               !!treatment_var,
               mean_pre, mean_post, mean_diff,
               sd_pre, sd_post, sd_diff,
@@ -1586,27 +1619,26 @@ pre_post_diff_plot <- function(data, pre_var, diff_var, treatment_var, by_var, r
               ci_post_lower, ci_post_upper,
               ci_diff_lower, ci_diff_upper,
               n
-            ),
-            segment.square = FALSE,
-            segment.inflect = TRUE),
+            )),
         inherit.aes = FALSE,
         size = annotation_size,
-        box.padding = 1.6,
-        point.padding = 1.4,
-        min.segment.length = 0,
-        direction = 'y',
-        hjust = 0,
-        nudge_x = summary_stats$label_nudge_x,
-        nudge_y = summary_stats$label_nudge_y
+        fill = "white",
+        label.size = 0,
+        label.padding = unit(0.13, "lines"),
+        label.r = unit(0.05, "lines"),
+        hjust = 0
       ) +
-      geom_text(
+      geom_label(
         data = effect_sizes,
         aes(x = -Inf, y = Inf, 
             label = sprintf("ATT Cohen's d: %.2f\np-value: %.3f", 
                             effect_size, p_value),
             fontface = ifelse(p_value < 0.05, 2, 1)
         ),
-        hjust = -0.1, vjust = 1.1, size = annotation_size * 0.85,
+        hjust = -0.1, vjust = 1.1, size = annotation_size * 0.82,
+        fill = "white",
+        label.size = 0,
+        label.padding = unit(0.08, "lines"),
         inherit.aes = FALSE
       )
   }
@@ -1782,24 +1814,15 @@ format_coef_labels <- function(labels, wrap_width = coef_plot_defaults$wrap_widt
       return(label)
     }
 
-    cleaned <- stringr::str_replace_all(label, " \\(", "\n(")
-    cleaned <- stringr::str_replace_all(cleaned, "\n\\s+", "\n")
-    if (stringr::str_detect(cleaned, "Treatment ×")) {
-      cleaned <- sub("Treatment ×\\s*", "Treatment ×\n", cleaned)
-      cleaned <- sub(":\\s*", "\n", cleaned)
-      cleaned <- sub("\\(per 1-unit increase\\)", "\n(per 1-unit increase)", cleaned, fixed = TRUE)
-    }
+    cleaned <- gsub("_", " ", label, fixed = TRUE)
+    cleaned <- gsub("\\.{2,}", " ", cleaned)
+    cleaned <- gsub("Treatment\\s*\\.+\\s*", "Treatment × ", cleaned, perl = TRUE)
+    cleaned <- gsub("Treatment\\s*[xX×]\\s*", "Treatment × ", cleaned, perl = TRUE)
+    cleaned <- gsub("\\s+", " ", cleaned)
+    cleaned <- trimws(cleaned)
 
-    parts <- strsplit(cleaned, "\n", fixed = TRUE)[[1]]
-    if (length(parts) == 0) {
-      return(stringr::str_trim(cleaned))
-    }
-
-    wrapped_parts <- vapply(parts, function(part) {
-      stringr::str_wrap(part, width = wrap_width)
-    }, character(1), USE.NAMES = FALSE)
-
-    stringr::str_trim(paste(wrapped_parts, collapse = "\n"))
+    wrapped <- strwrap(cleaned, width = wrap_width)
+    paste(wrapped, collapse = "\n")
   }, character(1), USE.NAMES = FALSE)
 }
 
@@ -1827,10 +1850,8 @@ plot_coefficients <- function(model_lists,
   subtitle_size <- max(font_sizes$subtitle - 4, text_size * 0.9)
   legend_title_size <- max(font_sizes$legend_title, text_size * 0.85)
   legend_text_size <- max(font_sizes$legend_text, text_size * 0.8)
-  title <- format_plot_title_lines(title)
-  subtitle <- format_plot_title_lines(subtitle)
-  title <- format_plot_title_lines(title)
-  subtitle <- format_plot_title_lines(subtitle)
+  title <- format_plot_title_lines(title, max_width = 58)
+  subtitle <- format_plot_title_lines(subtitle, max_width = 76)
   
   extract_coefs <- function(model, var_name, model_name, is_cisa = FALSE) {
     if (is.null(model) || !inherits(model, "lm")) {
@@ -1900,9 +1921,20 @@ plot_coefficients <- function(model_lists,
     geom_errorbarh(aes(xmin = estimate - 1.96 * std.error, 
                        xmax = estimate + 1.96 * std.error), 
                    height = error_bar_height) +
-    labs(x = x_label, y = y_label, title = title, subtitle = subtitle) +
+    labs(
+      x = x_label,
+      y = y_label,
+      title = title,
+      subtitle = subtitle,
+      color = "Significance",
+      shape = "Type"
+    ) +
     scale_color_manual(values = defaults$color_values) +
     scale_shape_manual(values = defaults$shape_values) +
+    guides(
+      color = guide_legend(order = 1, nrow = 1, override.aes = list(size = point_size)),
+      shape = guide_legend(order = 2, nrow = 1)
+    ) +
     theme_minimal() +
     theme(
       panel.grid.minor = element_blank(),
@@ -1913,10 +1945,12 @@ plot_coefficients <- function(model_lists,
       plot.subtitle = element_text(hjust = 0, size = subtitle_size),
       axis.text = element_text(size = axis_text_size),
       legend.position = "bottom",
-      legend.title = element_text(face = "bold", size = legend_title_size),
-      legend.text = element_text(size = legend_text_size),
+      legend.box = "vertical",
+      legend.justification = "center",
+      legend.title = element_text(face = "bold", size = legend_title_size * 0.9),
+      legend.text = element_text(size = legend_text_size * 0.9),
       plot.title.position = "plot",
-      plot.margin = margin(18, 24, 18, 18)
+      plot.margin = margin(18, 30, 18, 18)
     ) +
     coord_cartesian(xlim = c(-1, 1)) +
     scale_y_discrete(labels = function(x) format_coef_labels(x, wrap_width = wrap_width))
