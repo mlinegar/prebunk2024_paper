@@ -17,6 +17,7 @@ Thumbs.db
 
 # Generated analysis outputs
 prebunk_full.csv
+data/public/prebunk_public_replication.csv
 outputs/
 writing_draft/
 figures/

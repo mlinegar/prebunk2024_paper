@@ -1,0 +1,55 @@
+variable,type,values,description
+Age_Group,categorical,Under 30; 30-44; 45-64; 65+,Age group.
+Gender,categorical,Male; Female,Binary gender category.
+Race_Ethnicity,categorical,White; Black; Hispanic; Other,Race/ethnicity category.
+Education_Level,categorical,HS or less; Some college; College grad; Postgrad,Highest education category.
+Party_Identification,categorical,Democrat; Independent; Republican,Three-category party identification.
+Ideology,categorical,Liberal; Moderate; Conservative,Three-category ideology.
+Region,categorical,Northeast; Midwest; South; West,U.S. Census region.
+Urban_Rural,categorical,City; Suburb; Town; Rural area,Residential area type.
+Political_Interest,categorical,Pol Interest: Most of the time; Pol Interest: Some of the time; Pol Interest: Only now and then; Pol Interest: Hardly at all,Self-reported interest in political news.
+Populism_Score,numeric,"",Aggregate populism score; higher values indicate stronger populist attitudes.
+Conspiracy_Score,numeric,"",Aggregate conspiracy-belief score; higher values indicate stronger conspiracy beliefs.
+MIST_Correct,numeric,"",Number of MIST-8 misinformation susceptibility items answered correctly.
+Populism_Bin,categorical,6-10; 11-15; 16-20; 21-25; 26-30,Binned aggregate populism score.
+Conspiracy_Bin,categorical,6-10; 11-15; 16-20; 21-25; 26-30,Binned aggregate conspiracy-belief score.
+Election_Rumor_Randomization,categorical,Voter Fraud; Voter Rolls; Hacking; Blue Shift; Voting Machines,Randomized election-rumor assignment.
+Election_Rumor_Placebo_Randomization,categorical,Placebo; Treatment,Treatment assignment: prebunking article or placebo article.
+Human_In_The_Loop,categorical,Human In The Loop; Only AI,Whether the assigned prebunking article used additional human refinement.
+Article_Recalled_Recontact,logical,TRUE; FALSE,Whether the respondent recalled the assigned article in the recontact survey.
+Pre_Confidence_Own_Ballot,numeric,"",Pre-treatment confidence that own ballot would be counted accurately.
+Pre_Confidence_County_Ballots,numeric,"",Pre-treatment confidence that county ballots would be counted accurately.
+Pre_Confidence_Country_Ballots,numeric,"",Pre-treatment confidence that ballots nationally would be counted accurately.
+Post_Confidence_Own_Ballot,numeric,"",Immediate post-treatment confidence that own ballot would be counted accurately.
+Post_Confidence_County_Ballots,numeric,"",Immediate post-treatment confidence that county ballots would be counted accurately.
+Post_Confidence_Country_Ballots,numeric,"",Immediate post-treatment confidence that ballots nationally would be counted accurately.
+Confidence_Own_Ballot_Diff,numeric,"",Post-treatment minus pre-treatment confidence in own ballot counting.
+Confidence_County_Ballots_Diff,numeric,"",Post-treatment minus pre-treatment confidence in county ballot counting.
+Confidence_Country_Ballots_Diff,numeric,"",Post-treatment minus pre-treatment confidence in national ballot counting.
+Recontact_Confidence_Own_Ballot,numeric,"",Recontact confidence that own ballot would be counted accurately.
+Recontact_Confidence_County_Ballots,numeric,"",Recontact confidence that county ballots would be counted accurately.
+Recontact_Confidence_Country_Ballots,numeric,"",Recontact confidence that ballots nationally would be counted accurately.
+Recontact_Confidence_Own_Ballot_Diff,numeric,"",Recontact minus pre-treatment confidence in own ballot counting.
+Recontact_Confidence_County_Ballots_Diff,numeric,"",Recontact minus pre-treatment confidence in county ballot counting.
+Recontact_Confidence_Country_Ballots_Diff,numeric,"",Recontact minus pre-treatment confidence in national ballot counting.
+Rumor,numeric,"",Pre-treatment belief/confidence in the assigned election rumor.
+Rumor_Post,numeric,"",Immediate post-treatment belief/confidence in the assigned election rumor.
+Rumor_Recontact,numeric,"",Recontact belief/confidence in the assigned election rumor.
+Pre_All_Rumors,numeric,"",Pre-treatment average belief/confidence across all election rumors.
+Pre_All_Facts,numeric,"",Pre-treatment average belief/confidence across true election-security statements.
+Post_All_Rumors,numeric,"",Immediate post-treatment average belief/confidence across all election rumors; not asked in wave 1 and retained as missing for model compatibility.
+Post_All_Facts,numeric,"",Immediate post-treatment average belief/confidence across true election-security statements; not asked in wave 1 and retained as missing for model compatibility.
+Recontact_All_Rumors,numeric,"",Recontact average belief/confidence across all election rumors.
+Recontact_All_Facts,numeric,"",Recontact average belief/confidence across true election-security statements.
+Rumor_Diff,numeric,"",Immediate post-treatment minus pre-treatment belief/confidence in the assigned election rumor.
+Rumor_Diff_Recontact,numeric,"",Recontact minus pre-treatment belief/confidence in the assigned election rumor.
+All_Rumors_Diff_Recontact,numeric,"",Recontact minus pre-treatment average belief/confidence across all election rumors.
+All_Facts_Diff_Recontact,numeric,"",Recontact minus pre-treatment average belief/confidence across true election-security statements.
+Tried_To_Change_Friends_Mind,numeric,"",Recontact item measuring whether the respondent tried to change a friend or family member's mind.
+Motivated_To_Debunk,numeric,"",Recontact motivation to debunk election misinformation.
+Equipped_To_Push_Back,numeric,"",Recontact perceived ability to push back against election misinformation.
+Willing_To_Argue_Against,numeric,"",Recontact willingness to argue against election misinformation.
+attention_1_correct,logical,TRUE; FALSE,Indicator for passing the first attention check.
+attention_2_correct,logical,TRUE; FALSE,Indicator for passing the second attention check.
+weight,numeric,"",Main-wave survey weight.
+weight_recontact,numeric,"",Recontact survey weight; missing for respondents not observed in the recontact wave.

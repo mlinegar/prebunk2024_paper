@@ -204,7 +204,10 @@ complete_cases <- complete.cases(dat_final[,variables_in_model])
 # Rename the variables in dat_final
 dat_final <- rename_variables(dat_final, variable_labels)
 
-fwrite(dat_final, file.path(data_dir, "prebunk_full.csv"))
+write_full_processed_data <- !tolower(Sys.getenv("PREBUNK_WRITE_FULL_DATA", unset = "true")) %in% c("false", "0", "no")
+if (write_full_processed_data) {
+  fwrite(dat_final, file.path(data_dir, "prebunk_full.csv"))
+}
 
 # Create weighted and unweighted survey designs
 svy_design_weighted <- svydesign(data = dat_final, weights = ~weight, id = ~1)
